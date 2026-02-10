@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Direct Injection</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .container {
+      max-width: 750px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    h2 {
+      color: #555;
+      font-size: 18px;
+      margin: 20px 0 10px 0;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    select {
+      cursor: pointer;
+      background: white;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .checkbox-container {
+      background: #f0f7ff;
+      border: 2px solid #667eea;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      accent-color: #667eea;
+    }
+
+    .checkbox-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      user-select: none;
+      margin: 0;
+    }
+
+    .checkbox-description {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #666;
+      font-style: italic;
+      margin-left: 36px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #667eea;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 10px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #5568d3;
+    }
+
+    button.secondary {
+      background: #6c757d;
+    }
+
+    button.secondary:hover {
+      background: #5a6268;
+    }
+
+    button.success {
+      background: #28a745;
+    }
+
+    button.success:hover {
+      background: #218838;
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      background: #f0f0f0;
+    }
+
+    .status.active {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .log {
+      margin-top: 20px;
+      max-height: 250px;
+      overflow-y: auto;
+      background: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .log-entry {
+      padding: 5px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-entry.success {
+      color: #28a745;
+    }
+
+    .log-entry.error {
+      color: #dc3545;
+    }
+
+    .log-entry.info {
+      color: #17a2b8;
+    }
+
+    .log-entry.warning {
+      color: #ffc107;
+    }
+
+    small {
+      display: block;
+      margin-top: 5px;
+      color: #666;
+      font-size: 11px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      background: #667eea;
+      color: white;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🚀 Monitor DANEA</h1>
+
+    <h2>📡 Configurazione API</h2>
+
+    <div class="form-group">
+      <label>Endpoint Upload:</label>
+      <input type="url" id="endpoint" placeholder="https://api.example.com/v1/uploadDocuments">
+    </div>
+
+    <div class="form-group">
+      <label>Token:</label>
+      <input type="text" id="token" placeholder="Il tuo token">
+    </div>
+
+    <div class="form-group">
+      <label>Reference ID:</label>
+      <input type="text" id="referenceId" placeholder="0000">
+    </div>
+
+    <div class="form-group">
+      <label>Servizio:</label>
+      <input type="text" id="servizio" placeholder="Nome servizio">
+    </div>
+
+    <h2>🖨️ Configurazione Stampa</h2>
+
+    <div class="checkbox-container">
+      <div class="checkbox-group" onclick="document.getElementById('autoprint').click();">
+        <input type="checkbox" id="autoprint" onclick="event.stopPropagation();">
+        <label for="autoprint" class="checkbox-label">🖨️ Abilita Stampa Automatica</label>
+      </div>
+      <div class="checkbox-description">
+        Le etichette PDF verranno stampate automaticamente usando le API native di Electron
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Endpoint Stampa:</label>
+      <input type="url" id="printEndpoint" placeholder="https://api.example.com/v1/printLabel">
+      <small>URL dell'API che restituisce l'etichetta PDF in formato base64</small>
+    </div>
+
+    <div class="form-group">
+      <label>Stampante:</label>
+      <select id="printerSelect">
+        <option value="">Caricamento stampanti...</option>
+      </select>
+      <small>Seleziona la stampante da utilizzare (lascia "Predefinita" per usare quella di sistema)</small>
+    </div>
+
+    <div class="form-group">
+      <label>Formato Etichetta:</label>
+      <select id="labelSize">
+        <option value="10x15">10x15 cm (standard)</option>
+        <option value="10x10">10x10 cm</option>
+        <option value="10x20">10x20 cm</option>
+        <option value="custom">Personalizzato</option>
+      </select>
+      <small>Seleziona la dimensione delle tue etichette</small>
+    </div>
+
+    <div class="form-group" id="customSizeGroup" style="display: none;">
+      <label>Dimensioni Personalizzate (cm):</label>
+      <div style="display: flex; gap: 10px;">
+        <input type="number" id="customWidth" placeholder="Larghezza" step="0.1" style="width: 50%;">
+        <input type="number" id="customHeight" placeholder="Altezza" step="0.1" style="width: 50%;">
+      </div>
+    </div>
+
+    <div class="checkbox-container">
+      <div class="checkbox-group" onclick="document.getElementById('savePDF').click();">
+        <input type="checkbox" id="savePDF" onclick="event.stopPropagation();">
+        <label for="savePDF" class="checkbox-label">💾 Salva PDF invece di stampare</label>
+      </div>
+      <div class="checkbox-description">
+        I PDF verranno salvati nella cartella "etichette_salvate" invece di essere stampati
+      </div>
+    </div>
+    <button id="refreshPrinters" class="secondary">🔄 Aggiorna Lista Stampanti</button>
+    <button id="debugConfig" class="secondary">🔧 Debug Configurazione</button>
+
+    <h2>⚙️ Azioni</h2>
+
+    <button id="salva" class="success">💾 Salva Configurazione</button>
+    <button id="cambiaCartella" class="secondary">📁 Cambia Cartella Monitorata</button>
+
+    <div class="status" id="status">
+      ⏳ In attesa di configurazione...
+    </div>
+
+    <h2>📋 Log Attività</h2>
+    <div class="log" id="log">
+      <div class="log-entry info">🟢 Sistema pronto</div>
+    </div>
+  </div>
+
+  <script>const { ipcRenderer } = require('electron');
+
+    // Elementi UI
+    const endpointInput = document.getElementById('endpoint');
+    const tokenInput = document.getElementById('token');
+    const referenceIdInput = document.getElementById('referenceId');
+    const servizioInput = document.getElementById('servizio');
+    const printEndpointInput = document.getElementById('printEndpoint');
+    const autoprintCheckbox = document.getElementById('autoprint');
+    const printerSelect = document.getElementById('printerSelect');
+    const labelSizeSelect = document.getElementById('labelSize');
+    const customSizeGroup = document.getElementById('customSizeGroup');
+    const customWidthInput = document.getElementById('customWidth');
+    const customHeightInput = document.getElementById('customHeight');
+    const savePDFCheckbox = document.getElementById('savePDF');
+
+    const salvaBtn = document.getElementById('salva');
+    const cambiaCartellaBtn = document.getElementById('cambiaCartella');
+    const refreshPrintersBtn = document.getElementById('refreshPrinters');
+    const debugConfigBtn = document.getElementById('debugConfig');
+    const statusDiv = document.getElementById('status');
+    const logDiv = document.getElementById('log');
+
+    let currentConfig = {};
+
+    // ==================== UTILS ====================
+    function addLog(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${icon} ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      if (logDiv.children.length > 100) logDiv.removeChild(logDiv.children[1]);
+    }
+
+    // Gestione visibilità campi personalizzati
+    labelSizeSelect.addEventListener('change', () => {
+      customSizeGroup.style.display = labelSizeSelect.value === 'custom' ? 'block' : 'none';
+    });
+
+    // ==================== PRINTER FUNCTIONS ====================
+    async function loadPrinters() {
+      try {
+        const printers = await ipcRenderer.invoke('get-printers');
+        printerSelect.innerHTML = '<option value="">--- Stampante Predefinita ---</option>';
+        printers.forEach(printer => {
+          const option = document.createElement('option');
+          option.value = printer;
+          option.textContent = printer;
+          printerSelect.appendChild(option);
+        });
+        if (currentConfig.printerName) printerSelect.value = currentConfig.printerName;
+      } catch (err) {
+        addLog(`Errore stampanti: ${err.message}`, 'error');
+      }
+    }
+
+    // ==================== IPC HANDLERS ====================
+    ipcRenderer.on('config-caricata', (event, config) => {
+      currentConfig = config;
+
+      // Popola i campi base
+      endpointInput.value = config.endpoint || '';
+      tokenInput.value = config.token || '';
+      referenceIdInput.value = config.referenceId || '';
+      servizioInput.value = config.servizio || '';
+      printEndpointInput.value = config.printEndpoint || '';
+      autoprintCheckbox.checked = config.autoprint || false;
+      savePDFCheckbox.checked = config.savePDF || false;
+
+      // Popola i campi etichetta
+      if (config.labelSize) {
+        labelSizeSelect.value = config.labelSize;
+        if (config.labelSize === 'custom') {
+          customSizeGroup.style.display = 'block';
+          customWidthInput.value = config.labelWidth / 10 || ''; // riporta in cm
+          customHeightInput.value = config.labelHeight / 10 || '';
+        }
+      }
+
+      // Mostra lo stato della cartella monitorata se presente
+      if (config.folder) {
+        statusDiv.className = 'status active';
+        statusDiv.textContent = `✅ Monitoraggio attivo su: ${config.folder}`;
+        addLog(`Cartella monitorata: ${config.folder}`, 'success');
+      }
+
+      addLog('Configurazione caricata', 'success');
+      loadPrinters();
+    });
+
+    ipcRenderer.on('cartella-selezionata', (event, folder) => {
+      statusDiv.className = 'status active';
+      statusDiv.textContent = `✅ Monitoraggio attivo su: ${folder}`;
+      addLog(`Cartella monitorata: ${folder}`, 'success');
+    });
+
+    ipcRenderer.on('stampa-completata', (event, data) => {
+      addLog(`✅ Documento elaborato: ${data.numeroDocumento || data.idsped}`, 'success');
+    });
+
+    ipcRenderer.on('log-debug', (event, data) => {
+      addLog(data.msg, data.tipo || 'info');
+    });
+
+    // ==================== EVENT LISTENERS ====================
+    salvaBtn.addEventListener('click', () => {
+      const config = {
+        folder: currentConfig.folder, // ✅ Aggiunto: preserva la cartella monitorata
+        endpoint: endpointInput.value,
+        token: tokenInput.value,
+        referenceId: referenceIdInput.value,
+        servizio: servizioInput.value,
+        printEndpoint: printEndpointInput.value,
+        autoprint: autoprintCheckbox.checked,
+        printerName: printerSelect.value,
+        labelSize: labelSizeSelect.value,
+        // Converti in numeri per evitare calcoli errati nel main
+        customWidth: parseFloat(customWidthInput.value) || 0,
+        customHeight: parseFloat(customHeightInput.value) || 0,
+        savePDF: savePDFCheckbox.checked
+      };
+
+      ipcRenderer.send('salva-config', config);
+      addLog('💾 Configurazione inviata al sistema!', 'success');
+    });
+    cambiaCartellaBtn.addEventListener('click', () => ipcRenderer.send('richiesta-cambio-cartella'));
+    refreshPrintersBtn.addEventListener('click', loadPrinters);
+    debugConfigBtn.addEventListener('click', () => ipcRenderer.send('get-debug-info'));</script>
+</body>
+
+</html>
