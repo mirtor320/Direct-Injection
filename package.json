@@ -1,0 +1,131 @@
+{
+  "name": "danea-monitor",
+  "version": "1.0.4",
+  "author": "Mirko Tordente <sviluppo@bssi.it>",
+  "description": "Monitor per file XML Danea con stampa automatica etichette ZPL/PDF",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --inspect=5858",
+    "build": "electron-builder",
+    "build-win": "electron-builder --win",
+    "publish": "electron-builder --win --publish always",
+    "dist": "electron-builder",
+    "build-mac": "electron-builder --mac",
+    "build-linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "canvas": "^2.11.2",
+    "chokidar": "^3.5.3",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.7.3",
+    "form-data": "^4.0.0",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.6.205"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.businessservicesrl.file-monitor",
+    "productName": "Direct Injection",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "index.html",
+      "package.json",
+      "node_modules/**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!node_modules/*.d.ts",
+      "!node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+    "extraResources": [
+      {
+        "from": "tools",
+        "to": "tools",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.ico",
+      "publisherName": "Business Service S.r.l.",
+      "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "perMachine": false,
+      "runAfterFinish": true,
+      "menuCategory": false,
+      "shortcutName": "Direct Injection"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "mirtor320",
+        "repo": "Direct-Injection",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "keywords": [
+    "danea",
+    "monitor",
+    "xml",
+    "shipping",
+    "labels",
+    "zpl",
+    "pdf",
+    "print",
+    "automation"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mirtor320/Direct-Injection.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mirtor320/Direct-Injection/issues"
+  },
+  "homepage": "https://github.com/mirtor320/Direct-Injection#readme"
+}

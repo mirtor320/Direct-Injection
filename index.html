@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Direct Injection</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    h1 { color: #667eea; margin-bottom: 20px; text-align: center; }
+
+    h2 {
+      color: #555;
+      font-size: 18px;
+      margin: 24px 0 12px 0;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .form-group { margin-bottom: 15px; }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    select { cursor: pointer; background: white; }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .checkbox-container {
+      background: #f0f7ff;
+      border: 2px solid #667eea;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      accent-color: #667eea;
+    }
+
+    .checkbox-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      user-select: none;
+      margin: 0;
+    }
+
+    .checkbox-description {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #666;
+      font-style: italic;
+      margin-left: 36px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #667eea;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 10px;
+      transition: background 0.3s;
+    }
+
+    button:hover { background: #5568d3; }
+    button.secondary { background: #6c757d; }
+    button.secondary:hover { background: #5a6268; }
+    button.success { background: #28a745; }
+    button.success:hover { background: #218838; }
+    button.danger { background: #dc3545; width: auto; padding: 6px 12px; margin: 0; font-size: 13px; }
+    button.danger:hover { background: #c82333; }
+    button.sm { width: auto; padding: 8px 14px; margin: 0; font-size: 13px; }
+
+    /* ===== SEZIONE CARTELLE ===== */
+    #folders-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .folder-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f8f9ff;
+      border: 1px solid #d0d8ff;
+      border-radius: 8px;
+      padding: 10px 14px;
+      animation: slideIn 0.2s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .folder-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .folder-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .folder-path {
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .folder-workflow-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .folder-workflow-row label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    .folder-workflow-row input {
+      flex: 1;
+      padding: 4px 8px;
+      font-size: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .folder-empty {
+      text-align: center;
+      color: #999;
+      font-size: 13px;
+      padding: 16px;
+      background: #fafafa;
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+    }
+
+    .add-folder-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #eef0ff;
+      color: #667eea;
+      border: 2px dashed #667eea;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      margin-top: 0;
+      transition: background 0.2s;
+    }
+
+    .add-folder-btn:hover { background: #dde0ff; }
+
+    /* ===== STATUS ===== */
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      background: #f0f0f0;
+      font-size: 13px;
+    }
+
+    .status.active {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status-folders {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    /* ===== LOG ===== */
+    .log {
+      margin-top: 20px;
+      max-height: 220px;
+      overflow-y: auto;
+      background: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .log-entry { padding: 4px 0; border-bottom: 1px solid #eee; }
+    .log-entry:last-child { border-bottom: none; }
+    .log-entry.success { color: #28a745; }
+    .log-entry.error   { color: #dc3545; }
+    .log-entry.info    { color: #17a2b8; }
+    .log-entry.warning { color: #e0a800; }
+
+    small {
+      display: block;
+      margin-top: 5px;
+      color: #666;
+      font-size: 11px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      background: #667eea;
+      color: white;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge.pdf  { background: #dc3545; }
+    .badge.xml  { background: #17a2b8; }
+    .badge.both { background: #667eea; }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🚀 Direct Injection</h1>
+
+    <!-- ============ CONFIGURAZIONE API ============ -->
+    <h2>📡 Configurazione API</h2>
+
+    <div class="form-group">
+      <label>Endpoint Upload:</label>
+      <input type="url" id="endpoint" placeholder="https://api.example.com/v1/uploadDocuments">
+    </div>
+
+    <div class="form-group">
+      <label>Token:</label>
+      <input type="text" id="token" placeholder="Il tuo token">
+    </div>
+
+    <div class="form-group">
+      <label>Reference ID:</label>
+      <input type="text" id="referenceId" placeholder="0000">
+    </div>
+
+    <div class="form-group">
+      <label>Servizio:</label>
+      <input type="text" id="servizio" placeholder="Nome servizio">
+    </div>
+
+    <div class="form-group">
+      <label>🔑 Chiave Analisi Documenti (per estrazione dati PDF):</label>
+      <input type="text" id="openAiKey" placeholder="sk-proj-..." autocomplete="off">
+      <small>Se compilata, i documenti PDF vengono analizzati automaticamente per estrarre i dati di spedizione prima dell'invio all'endpoint.</small>
+    </div>
+
+    <!-- ============ CARTELLE MONITORATE ============ -->
+    <h2>📂 Cartelle Monitorate</h2>
+    <small style="margin-bottom:10px; display:block;">
+      Ogni cartella monitora automaticamente file <strong>.defxml</strong> e <strong>.pdf</strong>.
+      Il <em>Workflow</em> identifica il tipo di documento inviato all'API.
+    </small>
+
+    <div id="folders-list">
+      <div class="folder-empty" id="folders-empty">
+        Nessuna cartella configurata. Aggiungine una con il pulsante qui sotto.
+      </div>
+    </div>
+
+    <button class="add-folder-btn" id="aggiungiCartella">
+      ➕ Aggiungi Cartella
+    </button>
+
+    <!-- ============ CONFIGURAZIONE STAMPA ============ -->
+    <h2>🖨️ Configurazione Stampa</h2>
+
+    <div class="checkbox-container">
+      <div class="checkbox-group" onclick="document.getElementById('autoprint').click();">
+        <input type="checkbox" id="autoprint" onclick="event.stopPropagation();">
+        <label for="autoprint" class="checkbox-label">🖨️ Abilita Stampa Automatica</label>
+      </div>
+      <div class="checkbox-description">
+        Le etichette PDF verranno stampate automaticamente dopo l'elaborazione
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Endpoint Stampa:</label>
+      <input type="url" id="printEndpoint" placeholder="https://api.example.com/v1/printLabel">
+      <small>URL dell'API che restituisce l'etichetta PDF in formato base64</small>
+    </div>
+
+    <div class="form-group">
+      <label>Stampante:</label>
+      <select id="printerSelect">
+        <option value="">Caricamento stampanti...</option>
+      </select>
+      <small>Seleziona la stampante da utilizzare</small>
+    </div>
+
+    <div class="form-group">
+      <label>Formato Etichetta:</label>
+      <select id="labelSize">
+        <option value="10x15">10x15 cm (standard)</option>
+        <option value="10x10">10x10 cm</option>
+        <option value="10x20">10x20 cm</option>
+        <option value="custom">Personalizzato</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="customSizeGroup" style="display:none;">
+      <label>Dimensioni Personalizzate (cm):</label>
+      <div style="display:flex; gap:10px;">
+        <input type="number" id="customWidth"  placeholder="Larghezza" step="0.1" style="width:50%;">
+        <input type="number" id="customHeight" placeholder="Altezza"   step="0.1" style="width:50%;">
+      </div>
+    </div>
+
+    <div class="checkbox-container">
+      <div class="checkbox-group" onclick="document.getElementById('savePDF').click();">
+        <input type="checkbox" id="savePDF" onclick="event.stopPropagation();">
+        <label for="savePDF" class="checkbox-label">💾 Salva PDF invece di stampare</label>
+      </div>
+      <div class="checkbox-description">
+        I PDF verranno salvati nella cartella "etichette_salvate" invece di essere stampati
+      </div>
+    </div>
+
+    <button id="refreshPrinters" class="secondary">🔄 Aggiorna Lista Stampanti</button>
+    <button id="debugConfig"     class="secondary">🔧 Debug Configurazione</button>
+
+    <!-- ============ AZIONI ============ -->
+    <h2>⚙️ Azioni</h2>
+    <button id="salva" class="success">💾 Salva Configurazione e Avvia Monitoraggio</button>
+
+    <div class="status" id="status">⏳ In attesa di configurazione...</div>
+
+    <!-- ============ LOG ============ -->
+    <h2>📋 Log Attività</h2>
+    <div class="log" id="log">
+      <div class="log-entry info">🟢 Sistema pronto</div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // ===== UI REFS =====
+    const endpointInput      = document.getElementById('endpoint');
+    const tokenInput         = document.getElementById('token');
+    const referenceIdInput   = document.getElementById('referenceId');
+    const servizioInput      = document.getElementById('servizio');
+    const openAiKeyInput     = document.getElementById('openAiKey');
+    const printEndpointInput = document.getElementById('printEndpoint');
+    const autoprintCheckbox  = document.getElementById('autoprint');
+    const printerSelect      = document.getElementById('printerSelect');
+    const labelSizeSelect    = document.getElementById('labelSize');
+    const customSizeGroup    = document.getElementById('customSizeGroup');
+    const customWidthInput   = document.getElementById('customWidth');
+    const customHeightInput  = document.getElementById('customHeight');
+    const savePDFCheckbox    = document.getElementById('savePDF');
+    const salvaBtn           = document.getElementById('salva');
+    const refreshPrintersBtn = document.getElementById('refreshPrinters');
+    const debugConfigBtn     = document.getElementById('debugConfig');
+    const aggiungiCartellaBtn= document.getElementById('aggiungiCartella');
+    const statusDiv          = document.getElementById('status');
+    const logDiv             = document.getElementById('log');
+    const foldersListDiv     = document.getElementById('folders-list');
+    const foldersEmptyDiv    = document.getElementById('folders-empty');
+
+    let currentConfig = {};
+
+    // ===== UTILS =====
+    function addLog(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${icon} ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      if (logDiv.children.length > 100) logDiv.removeChild(logDiv.children[1]);
+    }
+
+    labelSizeSelect.addEventListener('change', () => {
+      customSizeGroup.style.display = labelSizeSelect.value === 'custom' ? 'block' : 'none';
+    });
+
+    // ===== GESTIONE CARTELLE =====
+    // folders = array di { folderPath, workflow }
+    let folders = [];
+
+    function renderFolders() {
+      // Rimuovi tutti i folder-item esistenti
+      Array.from(foldersListDiv.querySelectorAll('.folder-item')).forEach(el => el.remove());
+
+      if (folders.length === 0) {
+        foldersEmptyDiv.style.display = 'block';
+        return;
+      }
+      foldersEmptyDiv.style.display = 'none';
+
+      folders.forEach((f, idx) => {
+        const item = document.createElement('div');
+        item.className = 'folder-item';
+        item.dataset.index = idx;
+
+        item.innerHTML = `
+          <span class="folder-icon">📂</span>
+          <div class="folder-info">
+            <div class="folder-path" title="${f.folderPath}">${f.folderPath}</div>
+            <div class="folder-workflow-row">
+              <label>Workflow:</label>
+              <input type="text" class="workflow-input" value="${f.workflow || 'DANEA'}" placeholder="DANEA" data-idx="${idx}">
+            </div>
+          </div>
+          <button class="danger remove-folder-btn" data-idx="${idx}" title="Rimuovi cartella">🗑️</button>
+        `;
+
+        foldersListDiv.appendChild(item);
+      });
+
+      // Listener rimozione
+      foldersListDiv.querySelectorAll('.remove-folder-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.idx);
+          folders.splice(idx, 1);
+          renderFolders();
+          addLog(`Cartella rimossa dalla lista`, 'warning');
+        });
+      });
+
+      // Listener modifica workflow
+      foldersListDiv.querySelectorAll('.workflow-input').forEach(input => {
+        input.addEventListener('change', () => {
+          const idx = parseInt(input.dataset.idx);
+          folders[idx].workflow = input.value.trim() || 'DANEA';
+        });
+        input.addEventListener('input', () => {
+          const idx = parseInt(input.dataset.idx);
+          folders[idx].workflow = input.value.trim() || 'DANEA';
+        });
+      });
+    }
+
+    // Aggiungi cartella tramite dialog nativo
+    aggiungiCartellaBtn.addEventListener('click', async () => {
+      const selectedPath = await ipcRenderer.invoke('seleziona-cartella');
+      if (!selectedPath) return;
+
+      // Evita duplicati
+      if (folders.some(f => f.folderPath === selectedPath)) {
+        addLog(`Cartella già presente: ${selectedPath}`, 'warning');
+        return;
+      }
+
+      folders.push({ folderPath: selectedPath, workflow: 'DANEA' });
+      renderFolders();
+      addLog(`Cartella aggiunta: ${selectedPath}`, 'success');
+    });
+
+    // ===== STAMPA =====
+    async function loadPrinters() {
+      try {
+        const printers = await ipcRenderer.invoke('get-printers');
+        printerSelect.innerHTML = '<option value="">--- Stampante Predefinita ---</option>';
+        printers.forEach(printer => {
+          const opt = document.createElement('option');
+          opt.value = printer;
+          opt.textContent = printer;
+          printerSelect.appendChild(opt);
+        });
+        if (currentConfig.printerName) printerSelect.value = currentConfig.printerName;
+      } catch (err) {
+        addLog(`Errore stampanti: ${err.message}`, 'error');
+      }
+    }
+
+    // ===== IPC HANDLERS =====
+    ipcRenderer.on('config-caricata', (event, config) => {
+      currentConfig = config;
+
+      endpointInput.value      = config.endpoint || '';
+      tokenInput.value         = config.token || '';
+      referenceIdInput.value   = config.referenceId || '';
+      servizioInput.value      = config.servizio || '';
+      openAiKeyInput.value     = config.openAiKey || '';
+      printEndpointInput.value = config.printEndpoint || '';
+      autoprintCheckbox.checked = config.autoprint || false;
+      savePDFCheckbox.checked   = config.savePDF || false;
+
+      if (config.labelSize) {
+        labelSizeSelect.value = config.labelSize;
+        if (config.labelSize === 'custom') {
+          customSizeGroup.style.display = 'block';
+          customWidthInput.value  = (config.labelWidth  / 10) || '';
+          customHeightInput.value = (config.labelHeight / 10) || '';
+        }
+      }
+
+      // Carica cartelle
+      folders = Array.isArray(config.folders) ? config.folders.map(f => ({ ...f })) : [];
+      renderFolders();
+
+      if (folders.length > 0) {
+        aggiornaStatus(folders);
+        folders.forEach(f => addLog(`Cartella monitorata: ${f.folderPath} [${f.workflow}]`, 'success'));
+      }
+
+      addLog('Configurazione caricata', 'success');
+      loadPrinters();
+    });
+
+    ipcRenderer.on('monitoraggio-avviato', (event, data) => {
+      aggiornaStatus(data.folders);
+      addLog(`Monitoraggio avviato su ${data.count} cartella/e`, 'success');
+    });
+
+    ipcRenderer.on('file-processato', (event, data) => {
+      const nSped = data.numeroSpedizioni || 0;
+      addLog(`📄 ${data.fileName} → ${nSped} spedizioni [${data.workflow}]`, 'success');
+    });
+
+    ipcRenderer.on('stampa-completata', (event, data) => {
+      addLog(`🖨️ Documento elaborato: ${data.numeroDocumento || data.idsped}`, 'success');
+    });
+
+    ipcRenderer.on('log-debug', (event, data) => {
+      addLog(data.msg, data.tipo || 'info');
+    });
+
+    function aggiornaStatus(foldersArr) {
+      if (!foldersArr || foldersArr.length === 0) {
+        statusDiv.className = 'status';
+        statusDiv.innerHTML = '⏳ Nessuna cartella monitorata';
+        return;
+      }
+      statusDiv.className = 'status active';
+      const rows = foldersArr.map(f =>
+        `&nbsp;&nbsp;📂 <strong>${f.folderPath}</strong> <span class="badge">${f.workflow}</span>`
+      ).join('<br>');
+      statusDiv.innerHTML = `✅ Monitoraggio attivo su ${foldersArr.length} cartella/e:<br>
+        <div class="status-folders">${rows}</div>`;
+    }
+
+    // ===== SALVA CONFIGURAZIONE =====
+    salvaBtn.addEventListener('click', () => {
+      // Leggi valori workflow aggiornati dagli input prima di salvare
+      foldersListDiv.querySelectorAll('.workflow-input').forEach(input => {
+        const idx = parseInt(input.dataset.idx);
+        if (!isNaN(idx) && folders[idx]) {
+          folders[idx].workflow = input.value.trim() || 'DANEA';
+        }
+      });
+
+      const configData = {
+        folders: folders,
+        endpoint: endpointInput.value,
+        openAiKey: openAiKeyInput.value.trim(),
+        token: tokenInput.value,
+        referenceId: referenceIdInput.value,
+        servizio: servizioInput.value,
+        printEndpoint: printEndpointInput.value,
+        autoprint: autoprintCheckbox.checked,
+        printerName: printerSelect.value,
+        labelSize: labelSizeSelect.value,
+        customWidth:  parseFloat(customWidthInput.value)  || 0,
+        customHeight: parseFloat(customHeightInput.value) || 0,
+        savePDF: savePDFCheckbox.checked
+      };
+
+      ipcRenderer.send('salva-config', configData);
+      addLog(`💾 Configurazione salvata (${folders.length} cartella/e)`, 'success');
+    });
+
+    refreshPrintersBtn.addEventListener('click', loadPrinters);
+    debugConfigBtn.addEventListener('click', () => {
+      addLog(`Config: endpoint=${endpointInput.value}, cartelle=${folders.length}`, 'info');
+    });
+  </script>
+</body>
+</html>

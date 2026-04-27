@@ -1,0 +1,9 @@
+﻿node_modules/
+dist/
+out/
+build/
+*.exe
+*.zip
+*.blockmap
+.DS_Store
+*.log
