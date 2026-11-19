@@ -12,7 +12,8 @@ const { autoUpdater } = require('electron-updater');
 // pdf-parse: caricato lazy per evitare polyfill DOM all'avvio di Electron
 let pdfParse = null;
 function getPdfParse() {
-  if (!pdfParse) pdfParse = require('pdf-parse');
+  // import diretto di lib/ per evitare il "debug mode" di pdf-parse 1.x (legge un PDF di test inesistente)
+  if (!pdfParse) pdfParse = require('pdf-parse/lib/pdf-parse.js');
   return pdfParse;
 }
 
