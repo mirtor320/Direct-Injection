@@ -1,6 +1,6 @@
 {
   "name": "danea-monitor",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "author": "Mirko Tordente <sviluppo@bssi.it>",
   "description": "Monitor per file XML Danea con stampa automatica etichette ZPL/PDF",
   "main": "main.js",
@@ -16,13 +16,10 @@
   },
   "dependencies": {
     "axios": "^1.6.0",
-    "canvas": "^3.2.3",
     "chokidar": "^3.5.3",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.7.3",
-    "form-data": "^4.0.0",
-    "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^3.11.174"
+    "form-data": "^4.0.0"
   },
   "devDependencies": {
     "electron": "^27.0.0",
@@ -129,7 +126,6 @@
   },
   "homepage": "https://github.com/mirtor320/Direct-Injection#readme",
   "allowScripts": {
-    "electron@27.3.11": true,
-    "canvas@3.2.3": true
+    "electron@27.3.11": true
   }
 }

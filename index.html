@@ -324,17 +324,11 @@
       <input type="text" id="servizio" placeholder="Nome servizio">
     </div>
 
-    <div class="form-group">
-      <label>🔑 Chiave Analisi Documenti (per estrazione dati PDF):</label>
-      <input type="text" id="openAiKey" placeholder="sk-proj-..." autocomplete="off">
-      <small>Se compilata, i documenti PDF vengono analizzati automaticamente per estrarre i dati di spedizione prima dell'invio all'endpoint.</small>
-    </div>
-
     <!-- ============ CARTELLE MONITORATE ============ -->
     <h2>📂 Cartelle Monitorate</h2>
     <small style="margin-bottom:10px; display:block;">
       Ogni cartella monitora automaticamente file <strong>.defxml</strong> e <strong>.pdf</strong>.
-      Il <em>Workflow</em> identifica il tipo di documento inviato all'API.
+      I PDF li legge spedireonline (quota mensile del servizio) e diventano spedizioni; il <em>Workflow</em> vale per gli XML.
     </small>
 
     <div id="folders-list">
@@ -426,7 +420,6 @@
     const tokenInput         = document.getElementById('token');
     const referenceIdInput   = document.getElementById('referenceId');
     const servizioInput      = document.getElementById('servizio');
-    const openAiKeyInput     = document.getElementById('openAiKey');
     const printEndpointInput = document.getElementById('printEndpoint');
     const autoprintCheckbox  = document.getElementById('autoprint');
     const printerSelect      = document.getElementById('printerSelect');
@@ -559,7 +552,6 @@
       tokenInput.value         = config.token || '';
       referenceIdInput.value   = config.referenceId || '';
       servizioInput.value      = config.servizio || '';
-      openAiKeyInput.value     = config.openAiKey || '';
       printEndpointInput.value = config.printEndpoint || '';
       autoprintCheckbox.checked = config.autoprint || false;
       savePDFCheckbox.checked   = config.savePDF || false;
@@ -669,7 +661,6 @@
       const configData = {
         folders: folders,
         endpoint: endpointInput.value,
-        openAiKey: openAiKeyInput.value.trim(),
         token: tokenInput.value,
         referenceId: referenceIdInput.value,
         servizio: servizioInput.value,

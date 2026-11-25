@@ -8,51 +8,8 @@ const net = require('net');
 const chokidar = require('chokidar');
 const FormData = require('form-data');
 const { exec } = require('child_process');
+const crypto = require('crypto');
 const { autoUpdater } = require('electron-updater');
-// pdf-parse: caricato lazy per evitare polyfill DOM all'avvio di Electron
-let pdfParse = null;
-function getPdfParse() {
-  // import diretto di lib/ per evitare il "debug mode" di pdf-parse 1.x (legge un PDF di test inesistente)
-  if (!pdfParse) pdfParse = require('pdf-parse/lib/pdf-parse.js');
-  return pdfParse;
-}
-
-// pdfjs-dist e canvas vengono caricati lazy per gestire ambienti senza build tools
-let pdfjsLib = null;
-let nodeCanvas = null;
-
-function caricaDipendenzePdfVision() {
-  if (pdfjsLib && nodeCanvas) return true;
-  try {
-    pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-    nodeCanvas = require('canvas');
-    console.log('✅ Dipendenze PDF Vision (pdfjs-dist + canvas) caricate');
-    return true;
-  } catch (err) {
-    console.warn('⚠️ PDF Vision non disponibile:', err.message);
-    pdfjsLib = null;
-    nodeCanvas = null;
-    return false;
-  }
-}
-
-// NodeCanvasFactory richiesta da pdfjs-dist in ambiente Node.js
-class NodeCanvasFactory {
-  create(width, height) {
-    const canvas = nodeCanvas.createCanvas(width, height);
-    const context = canvas.getContext('2d');
-    return { canvas, context };
-  }
-  reset(cc, width, height) {
-    cc.canvas.width = width;
-    cc.canvas.height = height;
-  }
-  destroy(cc) {
-    cc.canvas.width = 0;
-    cc.canvas.height = 0;
-  }
-}
-
 // Configurazione auto-updater
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
@@ -133,8 +90,7 @@ function getDefaultConfig() {
     printerName: '',
     labelWidth: 100,
     labelHeight: 150,
-    savePDF: false,
-    openAiKey: ''         // Chiave API OpenAI per estrazione dati PDF
+    savePDF: false
   };
 }
 
@@ -389,270 +345,20 @@ async function richiediEtichettaStampa(spedizioni) {
 }
 
 // =====================================================
-// ESTRAZIONE TESTO DA PDF (pdf-parse)
-// =====================================================
-async function estrazioneTestoPdf(filePath) {
-  try {
-    const dataBuffer = fs.readFileSync(filePath);
-    const data = await getPdfParse()(dataBuffer);
-    const testo = data.text || '';
-    console.log(`📄 Testo estratto da PDF: ${testo.length} caratteri`);
-    return testo;
-  } catch (err) {
-    console.error(`❌ Errore estrazione testo PDF: ${err.message}`);
-    return '';
-  }
-}
-
-// =====================================================
-// CONVERSIONE PDF → IMMAGINI PNG (pdfjs-dist + canvas)
-// =====================================================
-async function pdfToBase64Images(filePath, maxPages = 3) {
-  if (!caricaDipendenzePdfVision()) {
-    throw new Error('Dipendenze Vision non disponibili (pdfjs-dist/canvas)');
-  }
-
-  const data = new Uint8Array(fs.readFileSync(filePath));
-  const canvasFactory = new NodeCanvasFactory();
-
-  const pdfDocument = await pdfjsLib.getDocument({
-    data,
-    canvasFactory,
-    verbosity: 0
-  }).promise;
-
-  const pages = Math.min(pdfDocument.numPages, maxPages);
-  const images = [];
-
-  for (let i = 1; i <= pages; i++) {
-    const page = await pdfDocument.getPage(i);
-    const viewport = page.getViewport({ scale: 2.0 }); // 2x per alta qualità
-    const cc = canvasFactory.create(viewport.width, viewport.height);
-
-    await page.render({
-      canvasContext: cc.context,
-      viewport
-    }).promise;
-
-    const base64 = cc.canvas.toDataURL('image/png').split(',')[1];
-    images.push(base64);
-    canvasFactory.destroy(cc);
-    console.log(`🖼️ Pagina ${i}/${pages} renderizzata (${Math.round(base64.length / 1024)} KB)`);
-  }
-
-  await pdfDocument.destroy();
-  return images;
-}
-
-// =====================================================
-// GPT-4o-mini VISION — estrazione da immagini PDF
-// =====================================================
-async function elaborazioneAiVision(images) {
-  const promptTesto = `Analizza questo documento e estrai i dati di spedizione.
-Restituisci SOLO un oggetto JSON valido, senza testo aggiuntivo, con questi campi
-(usa stringa vuota "" se il valore non è presente):
-{
-  "ragionesocialedestinazione": "",
-  "riferimentodestinazione": "",
-  "indirizzodestinazione": "",
-  "numerocivico": "",
-  "capdestinazione": "",
-  "cittadestinazione": "",
-  "provinciadestinazione": "",
-  "telefonodestinazione": "",
-  "emaildestinazione": "",
-  "documentn": "",
-  "importocontrassegno": "",
-  "numerocolli": "",
-  "peso": "",
-  "aspettobeni": "",
-  "note": ""
-}`;
-
-  // Costruisci il contenuto multimodale: testo + immagini
-  const content = [{ type: 'text', text: promptTesto }];
-  images.forEach(b64 => {
-    content.push({
-      type: 'image_url',
-      image_url: {
-        url: `data:image/png;base64,${b64}`,
-        detail: 'high'
-      }
-    });
-  });
-
-  console.log(`🤖 Chiamata Vision API con ${images.length} immagine/i...`);
-  const response = await axios.post(
-    'https://api.openai.com/v1/chat/completions',
-    {
-      model: 'gpt-4o-mini',
-      temperature: 0.2,
-      messages: [{ role: 'user', content }]
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${config.openAiKey}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 60000
-    }
-  );
-
-  return estraiJsonDaRisposta(response.data.choices[0].message.content);
-}
-
-// =====================================================
-// GPT-4o-mini TESTO — estrazione da testo grezzo PDF
-// =====================================================
-async function elaborazioneAiTesto(testo) {
-  const prompt = `Trova i dati di destinazione della merce dal seguente documento.
-Organizza il risultato SOLO come oggetto JSON valido, senza testo aggiuntivo, con questi campi
-(se un valore non è presente usa stringa vuota ""):
-{
-  "ragionesocialedestinazione": "",
-  "riferimentodestinazione": "",
-  "indirizzodestinazione": "",
-  "numerocivico": "",
-  "capdestinazione": "",
-  "cittadestinazione": "",
-  "provinciadestinazione": "",
-  "telefonodestinazione": "",
-  "emaildestinazione": "",
-  "documentn": "",
-  "importocontrassegno": "",
-  "numerocolli": "",
-  "peso": "",
-  "aspettobeni": "",
-  "note": ""
-}
-
-Documento da analizzare:
-${testo.substring(0, 4000)}`;
-
-  console.log('🤖 Chiamata GPT-4o-mini (testo)...');
-  const response = await axios.post(
-    'https://api.openai.com/v1/chat/completions',
-    {
-      model: 'gpt-4o-mini',
-      temperature: 0.2,
-      messages: [{ role: 'user', content: prompt }]
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${config.openAiKey}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 30000
-    }
-  );
-
-  return estraiJsonDaRisposta(response.data.choices[0].message.content);
-}
-
-// Helper: estrae il blocco JSON da una stringa di risposta AI
-function estraiJsonDaRisposta(raw) {
-  const jsonStart = raw.indexOf('{');
-  const jsonEnd   = raw.lastIndexOf('}');
-  if (jsonStart === -1 || jsonEnd === -1) {
-    console.warn('⚠️ Nessun JSON trovato nella risposta AI');
-    return null;
-  }
-  try {
-    const result = JSON.parse(raw.substring(jsonStart, jsonEnd + 1));
-    console.log('✅ Dati spedizione estratti:', JSON.stringify(result));
-    return result;
-  } catch (e) {
-    console.error('❌ Errore parsing JSON risposta AI:', e.message);
-    return null;
-  }
-}
-
-// =====================================================
-// STRATEGIA IBRIDA: decide automaticamente testo o vision
-// Soglia: testo significativo < 150 caratteri → Vision
-// =====================================================
-async function elaborazioneAiIbrida(filePath) {
-  if (!config.openAiKey) {
-    console.warn('⚠️ Chiave OpenAI non configurata, skip AI');
-    return null;
-  }
-
-  try {
-    // Step 1: estrai testo grezzo
-    const testo = await estrazioneTestoPdf(filePath);
-    const testoSignificativo = testo.replace(/\s+/g, ' ').trim();
-
-    // Step 2: decidi il metodo
-    const SOGLIA_TESTO = 150;
-    const usaVision = testoSignificativo.length < SOGLIA_TESTO;
-
-    if (usaVision) {
-      console.log(`🖼️ Testo insufficiente (${testoSignificativo.length} car.), uso Vision API`);
-      if (mainWindow) {
-        mainWindow.webContents.send('log-debug', {
-          tipo: 'info',
-          msg: `🖼️ PDF scansionato/immagine rilevato, uso Vision AI...`
-        });
-      }
-
-      // Renderizza il PDF in immagini e manda alla Vision API
-      const images = await pdfToBase64Images(filePath);
-      return await elaborazioneAiVision(images);
-
-    } else {
-      console.log(`📝 Testo sufficiente (${testoSignificativo.length} car.), uso modalità testo`);
-      if (mainWindow) {
-        mainWindow.webContents.send('log-debug', {
-          tipo: 'info',
-          msg: `📝 PDF testuale rilevato, estrazione via testo...`
-        });
-      }
-      return await elaborazioneAiTesto(testoSignificativo);
-    }
-  } catch (err) {
-    console.error(`❌ Errore elaborazione AI ibrida: ${err.message}`);
-    return null;
-  }
-}
-
-// =====================================================
 // INVIO FILE (XML o PDF) — logica comune
+// XML: il server crea una spedizione per documento.
+// PDF: il server lo legge (servizio Direct Injection, quota mensile) e crea la spedizione.
 // =====================================================
-async function inviaFile(filePath, workflow) {
-  const ext = path.extname(filePath).toLowerCase();
-  const isPdf = ext === '.pdf';
+async function inviaFile(filePath, workflowCartella) {
+  const isPdf = path.extname(filePath).toLowerCase() === '.pdf';
+  // Le cartelle nascono con workflow DANEA, che vale per gli XML: i PDF hanno sempre il loro
+  const workflow = isPdf ? 'PDF' : workflowCartella;
 
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '_').substring(0, 15);
+  const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').substring(0, 15);
+  const casuale = crypto.randomBytes(3).toString('hex'); // due file nello stesso secondo non si sovrascrivono sul server
   const referenceId = config.referenceId || '0000';
   const contentType = isPdf ? 'application/pdf' : 'application/xml';
-  const fileExt = isPdf ? '.pdf' : '.defxml';
-  const fileName = `${referenceId}_${workflow}_${timestamp}${fileExt}`;
-
-  // Se è un PDF e la chiave OpenAI è configurata → strategia ibrida AI
-  let datiAi = null;
-  if (isPdf && config.openAiKey) {
-    if (mainWindow) {
-      mainWindow.webContents.send('log-debug', {
-        tipo: 'info',
-        msg: `🤖 Avvio estrazione AI: ${path.basename(filePath)}...`
-      });
-    }
-
-    datiAi = await elaborazioneAiIbrida(filePath);
-
-    if (datiAi && mainWindow) {
-      mainWindow.webContents.send('log-debug', {
-        tipo: 'success',
-        msg: `✅ AI → ${datiAi.ragionesocialedestinazione || '?'} | ${datiAi.cittadestinazione || '?'} | colli: ${datiAi.numerocolli || '?'}`
-      });
-    } else if (!datiAi && mainWindow) {
-      mainWindow.webContents.send('log-debug', {
-        tipo: 'warning',
-        msg: `⚠️ Estrazione AI non riuscita per ${path.basename(filePath)}, caricamento file senza dati estratti`
-      });
-    }
-  }
+  const fileName = `${referenceId}_${workflow}_${timestamp}_${casuale}${isPdf ? '.pdf' : '.defxml'}`;
 
   const documentMetadata = {
     document: {
@@ -662,8 +368,7 @@ async function inviaFile(filePath, workflow) {
       contentType: contentType,
       meta: { imageType: '', imageIndex: '' }
     },
-    rules: { workflowName: workflow },
-    datiSpedizione: datiAi   // null se estrazione non disponibile o non configurata
+    rules: { workflowName: workflow, estraiDati: isPdf, creaSpedizione: isPdf }
   };
 
   const form = new FormData();
@@ -675,15 +380,35 @@ async function inviaFile(filePath, workflow) {
 
   console.log(`📤 Invio ${isPdf ? 'PDF' : 'XML'} [${workflow}] → ${config.endpoint}...`);
 
-  const response = await axios.post(config.endpoint, form, {
-    headers: {
-      ...form.getHeaders(),
-      'BSSI-TokenKey': config.token,
-      'User-Agent': 'Mozilla/5.0'
-    },
-    httpsAgent: httpsAgent,
-    timeout: 60000
-  });
+  let response;
+  try {
+    response = await axios.post(config.endpoint, form, {
+      headers: {
+        ...form.getHeaders(),
+        'BSSI-TokenKey': config.token,
+        'User-Agent': 'Mozilla/5.0'
+      },
+      httpsAgent: httpsAgent,
+      timeout: isPdf ? 180000 : 60000 // la lettura di un PDF scansionato e' lenta
+    });
+  } catch (err) {
+    const message = err.response?.data?.message;
+    throw message ? new Error(message) : err;
+  }
+
+  if (isPdf) {
+    const quota = response.data?.quota;
+    if (quota && mainWindow) {
+      mainWindow.webContents.send('log-debug', {
+        tipo: quota.restanti <= 3 ? 'warning' : 'info',
+        msg: `📊 PDF letti questo mese: ${quota.usati} di ${quota.limite}`
+      });
+    }
+    // Un server senza la creazione da PDF risponde success con 0 spedizioni: il PDF non va cancellato
+    if (response.data?.success && !(response.data.spedizioni?.length > 0)) {
+      throw new Error('PDF ricevuto ma nessuna spedizione creata');
+    }
+  }
 
   return response;
 }
@@ -759,7 +484,13 @@ function avviaMonitoraggio() {
           }
 
           if (response.data.spedizioni) {
-            await processaSpedizioni(response.data.spedizioni, path.basename(filePath));
+            try {
+              await processaSpedizioni(response.data.spedizioni, path.basename(filePath));
+            } catch (printErr) {
+              // La spedizione c'e' gia': il file non va in errori, altrimenti si reinvia e si duplica
+              console.error('❌ Errore stampa:', printErr.message);
+              if (mainWindow) mainWindow.webContents.send('log-debug', { tipo: 'error', msg: `Errore stampa: ${printErr.message}` });
+            }
           }
 
           fs.unlinkSync(filePath);
@@ -781,7 +512,10 @@ function avviaMonitoraggio() {
         const errorFolder = path.join(folderPath, 'errori');
         if (!fs.existsSync(errorFolder)) fs.mkdirSync(errorFolder, { recursive: true });
         try {
-          fs.renameSync(filePath, path.join(errorFolder, path.basename(filePath)));
+          const nome = path.parse(filePath);
+          let destinazione = path.join(errorFolder, nome.base);
+          if (fs.existsSync(destinazione)) destinazione = path.join(errorFolder, `${nome.name}_${Date.now()}${nome.ext}`);
+          fs.renameSync(filePath, destinazione);
           console.log(`📁 File spostato in: ${errorFolder}`);
         } catch (moveErr) {
           console.error(`❌ Impossibile spostare il file: ${moveErr.message}`);
@@ -831,7 +565,6 @@ ipcMain.on('salva-config', (event, data) => {
   config.endpoint = data.endpoint;
   config.token = data.token;
   config.referenceId = data.referenceId;
-  config.openAiKey = data.openAiKey || '';
   config.servizio = data.servizio;
   config.printEndpoint = data.printEndpoint || '';
   config.autoprint = data.autoprint || false;
