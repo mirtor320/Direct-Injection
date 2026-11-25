@@ -84,6 +84,9 @@ const getResourcePath = (relativePath) => {
   }
 };
 
+// Scambia il codice generato da LogiFlow con la configurazione (LogiFlowDirectInjectionController.Attiva)
+const URL_ATTIVAZIONE = 'https://web.spedireonline.cloud/globaltrs/api/v1/logiflow/direct-injection/attiva';
+
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 
 console.log('📁 Percorsi applicazione:');
@@ -857,6 +860,43 @@ ipcMain.on('salva-config', (event, data) => {
 
   salvaConfigurazione();
   avviaMonitoraggio();
+});
+
+// Attivazione con il codice di LogiFlow. Il codice vale una volta sola: la configurazione si salva subito.
+ipcMain.handle('attiva-codice', async (event, codice) => {
+  const c = String(codice || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (c.length !== 8) return { ok: false, message: 'Il codice di attivazione ha 8 caratteri (XXXX-XXXX).' };
+
+  let response;
+  try {
+    response = await axios.get(URL_ATTIVAZIONE, {
+      params: { codice: `${c.slice(0, 4)}-${c.slice(4)}` },
+      // La risposta contiene la chiave del cliente: qui il certificato si verifica
+      httpsAgent: new https.Agent({ rejectUnauthorized: true }),
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 30000
+    });
+  } catch (err) {
+    console.error('❌ Errore attivazione:', err.response?.status, err.message);
+    return { ok: false, message: err.response?.data?.message || `Attivazione non riuscita: ${err.message}` };
+  }
+
+  const r = response.data && response.data.configurazione;
+  if (!r || !r.endpoint || !r.token) return { ok: false, message: 'Risposta del server non valida.' };
+
+  const ricevuti = {
+    endpoint: r.endpoint,
+    printEndpoint: r.printEndpoint || '',
+    sendLdvEndpoint: r.sendLdvEndpoint || '',
+    token: r.token,
+    referenceId: r.referenceId || '',
+    servizio: r.servizio || ''
+  };
+  Object.assign(config, ricevuti);
+  salvaConfigurazione();
+  avviaMonitoraggio();
+  console.log('✅ App attivata con codice');
+  return { ok: true, configurazione: ricevuti };
 });
 
 // Apri dialog per selezionare una nuova cartella da aggiungere

@@ -287,6 +287,20 @@
   <div class="container">
     <h1>🚀 Direct Injection</h1>
 
+    <!-- ============ ATTIVAZIONE ============ -->
+    <h2>🔑 Attivazione</h2>
+
+    <div class="form-group">
+      <label for="codiceAttivazione">Codice di attivazione:</label>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="codiceAttivazione" placeholder="XXXX-XXXX" maxlength="20" autocomplete="off" spellcheck="false"
+               style="text-transform:uppercase; letter-spacing:2px; font-weight:600;">
+        <button id="attiva" class="success sm">Attiva</button>
+      </div>
+      <small>Generalo da LogiFlow: Ordini &gt; Danea &gt; Configura Direct Injection. Compila da solo i dati qui sotto.</small>
+      <small id="esitoAttivazione" role="status" style="font-size:13px;"></small>
+    </div>
+
     <!-- ============ CONFIGURAZIONE API ============ -->
     <h2>📡 Configurazione API</h2>
 
@@ -603,6 +617,44 @@
       statusDiv.innerHTML = `✅ Monitoraggio attivo su ${foldersArr.length} cartella/e:<br>
         <div class="status-folders">${rows}</div>`;
     }
+
+    // ===== ATTIVAZIONE CON CODICE =====
+    const codiceInput = document.getElementById('codiceAttivazione');
+    const attivaBtn   = document.getElementById('attiva');
+    const esitoDiv    = document.getElementById('esitoAttivazione');
+
+    function mostraEsito(message, ok) {
+      esitoDiv.textContent = message;
+      esitoDiv.style.color = ok ? '#218838' : '#dc3545';
+      addLog(message, ok ? 'success' : 'error');
+    }
+
+    async function attiva() {
+      if (attivaBtn.disabled) return;
+      attivaBtn.disabled = true;
+      attivaBtn.textContent = 'Attivazione...';
+      try {
+        const r = await ipcRenderer.invoke('attiva-codice', codiceInput.value);
+        if (!r.ok) { mostraEsito(r.message, false); return; }
+
+        // Solo i campi ricevuti: cartelle e stampa non ancora salvate restano a video
+        endpointInput.value      = r.configurazione.endpoint;
+        tokenInput.value         = r.configurazione.token;
+        referenceIdInput.value   = r.configurazione.referenceId;
+        servizioInput.value      = r.configurazione.servizio;
+        printEndpointInput.value = r.configurazione.printEndpoint;
+        codiceInput.value = '';
+        mostraEsito('App attivata. Ora scegli la cartella dei documenti e premi "Salva Configurazione e Avvia Monitoraggio".', true);
+      } catch (err) {
+        mostraEsito(`Attivazione non riuscita: ${err.message}`, false);
+      } finally {
+        attivaBtn.disabled = false;
+        attivaBtn.textContent = 'Attiva';
+      }
+    }
+
+    attivaBtn.addEventListener('click', attiva);
+    codiceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') attiva(); });
 
     // ===== SALVA CONFIGURAZIONE =====
     salvaBtn.addEventListener('click', () => {
